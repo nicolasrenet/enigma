@@ -119,6 +119,14 @@ class Rotor():
 		"""
 		return chr( self.position + self.ring_setting + 65)
 
+	def get_window_numeral( self ):
+		""" Return the numeric value of the letter that appears in the window.
+
+		:return: a integer between 0 and 25
+		:rtype: int
+		"""
+		return self.position + self.ring_setting
+
 
 	def alphabet( self ):
 		""" Return the encryption alphabet (leftward encoding), as a human-readable string.
@@ -255,7 +263,7 @@ class Enigma():
 		"""
 		# Ex. is carry notch for the rotor is 'Q' and current position is 'Q', the step that is about to occur
 		# will also take the rotor on the left one step further.
-		carry = (rotor.position == rotor.notch)
+		carry = (rotor.get_window_numeral() == rotor.notch)
 
 		rotor.increment_position()
 
@@ -273,12 +281,13 @@ class Enigma():
 		:rtype: str
 		"""
 
-		log('Position:  {} Window: {}'.format( self.get_positions(), self.get_window()), 2)	
 		log("Encoding {}".format(letter),2)
 		input_code = ord(letter)-65
 
 		if not self.STATIC:
 			self.step( self.rotor_R )
+
+		log('Position:  {} Window: {}'.format( self.get_positions(), self.get_window()), 2)	
 
 		# The way out of the leftmost rotor, to the reflector
 		for rotor in (self.rotor_R, self.rotor_M, self.rotor_L ):
