@@ -34,6 +34,8 @@ class Rotor():
 		self.right, self.left = (None, None)
 
 		self.notch = ord( notch ) - 65
+
+		self.ring_setting = 0
 		
 
 	def encode_out(self, code ):
@@ -154,14 +156,17 @@ class Enigma():
 		 * ring setting: AAA
 		 """
 
-		self.rotor1 = Rotor( 'I',  'EKMFLGDQVZNTOWYHXUSPAIBRCJ', 'Q' )
-		self.rotor2 = Rotor( 'II', 'AJDKSIRUXBLHWTMCQGZNPYFVOE', 'E' )
-		self.rotor3 = Rotor( 'III','BDFHJLCPRTXVZNYEIWGAKMUSQO', 'V' ) 
+		self.rotors = [ Rotor( 'I',  'EKMFLGDQVZNTOWYHXUSPAIBRCJ', 'Q' ), 
+				Rotor( 'II', 'AJDKSIRUXBLHWTMCQGZNPYFVOE', 'E' ),
+				Rotor( 'III','BDFHJLCPRTXVZNYEIWGAKMUSQO', 'V' ),
+				Rotor( 'IV', 'ESOVPZJAYQUIRHXLNFTGKDCMWB', 'J' ),
+				Rotor( 'V',  'VZBRGITYUPSDNHLXAWMJQOFECK', 'Z' )
+				]
 		# reflector
 		self.reflectorB = Rotor( 'Wide-B', 'YRUHQSLDPXNGOKMIEBFZCWVJAT' )
 
 		# Rotors I through III, from L to R
-		self.assemble_rotors( self.rotor1, self.rotor2, self.rotor3, self.reflectorB )
+		self.assemble_rotors( self.rotors[0], self.rotors[1], self.rotors[2], self.reflectorB )
 
 		# Set this attribute to prevent rotor stepping (prevent polyalphabetic encyphering)
 		self.STATIC=False
@@ -388,9 +393,9 @@ class TestRotors( unittest.TestCase ):
 
 	def test_ring_setting_1( self ):
 		print("\nTest that ring setting 'C' rotates the alphabet by 2 positions (for rotor I)")
-		self.enigma.rotor1.set_ring('C')
+		self.enigma.rotors[0].set_ring('C')
 
-		self.assertEqual( self.enigma.rotor1.alphabet(), 'ELGMOHNIFSXBPVQYAJZWURCKDT' )
+		self.assertEqual( self.enigma.rotors[0].alphabet(), 'ELGMOHNIFSXBPVQYAJZWURCKDT' )
 
 	def test_ring_setting_2( self ):
 		print("\nTest polyalphabetic sequential encoding, with R-rotor only and ring setting 'BBB'")
