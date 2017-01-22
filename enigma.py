@@ -450,16 +450,32 @@ class TestRotors( unittest.TestCase ):
 		self.assertEqual( self.enigma.rotor_R.get_ring_setting(), 'W')
 
 	def test_middle_rotor_turnover( self ):
-		# R-rotor is in the notch position
+		# R-rotor ring is in the notch position
 		self.enigma.configure('123','AAV')
 		self.enigma.step( self.enigma.rotor_R )
 		self.assertEqual( self.enigma.rotor_M.get_position(), 'B') 
+
+	def test_middle_rotor_turnover_with_ring_offset( self ):
+		print("Testing that turnover mechanism is triggered by the alphabet ring's position, not the rotor's")
+		# R-rotor ring is in the notch position
+		self.enigma.configure('123','AAA','AAV')
+		self.enigma.step( self.enigma.rotor_R )
+		self.assertEqual( self.enigma.rotor_R.get_window_letter(), 'W') 
+		self.assertEqual( self.enigma.rotor_M.get_window_letter(), 'B') 
 
 	def test_left_rotor_turnover( self ):
 		# M-rotor is in the notch position
 		self.enigma.configure('123','AEA')
 		self.enigma.step( self.enigma.rotor_M )
 		self.assertEqual( self.enigma.rotor_L.get_position(), 'B') 
+
+	def test_left_rotor_turnover_with_ring_offset( self ):
+		print("Testing that turnover mechanism is triggered by the alphabet ring's position, not the rotor's")
+		# M-rotor is in the notch position
+		self.enigma.configure('123','AAA','AEA')
+		self.enigma.step( self.enigma.rotor_M )
+		self.assertEqual( self.enigma.rotor_M.get_window_letter(), 'F') 
+		self.assertEqual( self.enigma.rotor_L.get_window_letter(), 'B') 
 
 	def test_turnover_sequence( self ):
 		# R- and M-rotor are in the notch position
@@ -469,6 +485,16 @@ class TestRotors( unittest.TestCase ):
 		self.assertEqual( self.enigma.rotor_R.get_position(), 'W') 
 		self.assertEqual( self.enigma.rotor_M.get_position(), 'F') 
 		self.assertEqual( self.enigma.rotor_L.get_position(), 'B') 
+
+	def test_turnover_sequence_with_ring_offset( self ):
+		print("Testing that turnover mechanism is triggered by the alphabet ring's position, not the rotor's")
+		# R- and M-rotor are in the notch position
+		# L-rotor should be taken one step further.
+		self.enigma.configure('123','AAA', 'AEV')
+		self.enigma.step( self.enigma.rotor_R )
+		self.assertEqual( self.enigma.rotor_R.get_window_letter(), 'W') 
+		self.assertEqual( self.enigma.rotor_M.get_window_letter(), 'F') 
+		self.assertEqual( self.enigma.rotor_L.get_window_letter(), 'B') 
 
 
 if __name__ == '__main__':
