@@ -230,7 +230,7 @@ class Enigma():
 		self.rotor_M.set_ring( trigram[1] )
 		self.rotor_R.set_ring( trigram[2] )
 
-	def configure(self, rotor_positions='AAA', ring_settings='AAA' ):
+	def configure(self, rotor_selection='123', rotor_positions='AAA', ring_settings='AAA' ):
 		""" Define the initial configuration of the machine.
 
 		:param rotor_positions: a 3-letter code that determines the starting position for the rotors
@@ -238,6 +238,12 @@ class Enigma():
 		:type rotor_positions: str
 		:type ring_settings: str
 		"""
+		left_rotor = self.rotors[ int(rotor_selection[0])-1 ]
+		middle_rotor = self.rotors[ int(rotor_selection[1])-1 ]
+		right_rotor = self.rotors[ int(rotor_selection[2])-1 ]
+
+		self.assemble_rotors( left_rotor, middle_rotor, right_rotor, self.reflectorB )
+
 		self.set_positions( rotor_positions )
 		self.set_rings( ring_settings )
 
@@ -311,6 +317,8 @@ class Enigma():
 		"""Interact with the machine: allow for configuring a machine (rotor positions and ring settings), and for encoding an entire message, or letter by letter.
 		"""
 
+		rotor_selection = input("Choose the rotors to be used, from left to right [default: 123 ]: ")
+		if rotor_selection == '': rotor_selection = '123' 
 		rotor_position = input("Choose the starting positions for the rotors [default: 'AAA']: ")
 		if rotor_position == '': rotor_position = 'AAA'
 		ring_setting = input("Choose the ring settings for the rotors [default: 'AAA']: ")
@@ -318,7 +326,7 @@ class Enigma():
 		interactive = input("Interactive mode? [N/y] ")
 		if interactive == '': interactive = False
 
-		self.configure( rotor_position, ring_setting)
+		self.configure( rotor_selection, rotor_position, ring_setting)
 
 		if interactive:
 
@@ -418,7 +426,7 @@ class TestRotors( unittest.TestCase ):
 		self.assertEqual( encyphered_sequence, [ 'E', 'W', 'T', 'Y', 'X'] )
 
 	def test_configure_positions( self ):
-		self.enigma.configure( "BCL" )
+		self.enigma.configure('123', "BCL" )
 		
 		self.assertEqual( self.enigma.rotor_L.get_position(), 'B')
 		self.assertEqual( self.enigma.rotor_M.get_position(), 'C')
@@ -426,7 +434,7 @@ class TestRotors( unittest.TestCase ):
 
 
 	def test_configure_ring_settings( self ):
-		self.enigma.configure( ring_settings="FKW" )
+		self.enigma.configure('123', ring_settings="FKW" )
 		
 		self.assertEqual( self.enigma.rotor_L.get_ring_setting(), 'F')
 		self.assertEqual( self.enigma.rotor_M.get_ring_setting(), 'K')
@@ -434,20 +442,20 @@ class TestRotors( unittest.TestCase ):
 
 	def test_middle_rotor_turnover( self ):
 		# R-rotor is in the notch position
-		self.enigma.configure('AAV')
+		self.enigma.configure('123','AAV')
 		self.enigma.step( self.enigma.rotor_R )
 		self.assertEqual( self.enigma.rotor_M.get_position(), 'B') 
 
 	def test_left_rotor_turnover( self ):
 		# M-rotor is in the notch position
-		self.enigma.configure('AEA')
+		self.enigma.configure('123','AEA')
 		self.enigma.step( self.enigma.rotor_M )
 		self.assertEqual( self.enigma.rotor_L.get_position(), 'B') 
 
 	def test_turnover_sequence( self ):
 		# R- and M-rotor are in the notch position
 		# L-rotor should be taken one step further.
-		self.enigma.configure('AEV')
+		self.enigma.configure('123','AEV')
 		self.enigma.step( self.enigma.rotor_R )
 		self.assertEqual( self.enigma.rotor_R.get_position(), 'W') 
 		self.assertEqual( self.enigma.rotor_M.get_position(), 'F') 
