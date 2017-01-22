@@ -29,7 +29,7 @@ class Rotor():
 
 		self.out_alphabet_out = self.A_ring_setting_alphabet
 		# reverse mapping for encoding on the way back from reflector
-		self.out_alphabet_back = self.back_alphabet( self.out_alphabet_out )
+		self.out_alphabet_back = self._back_alphabet( self.out_alphabet_out )
 
 		self.right, self.left = (None, None)
 
@@ -99,7 +99,7 @@ class Rotor():
 			log("Alphabet after rotation by {} self.ring_settings: {}".format( self.ring_setting, self.alphabet()))
 			self.out_alphabet_out = [ (code+self.ring_setting)%26 for code in self.out_alphabet_out ]
 
-		self.out_alphabet_back = self.back_alphabet( self.out_alphabet_out )
+		self.out_alphabet_back = self._back_alphabet( self.out_alphabet_out )
 
 	def get_ring_setting( self ):
 		""" Return the ring setting for the rotor in human-readable form, i.e. as a letter.
@@ -136,7 +136,7 @@ class Rotor():
 		"""
 		return ''.join( [ chr(code+65) for code in self.out_alphabet_out ] )
 
-	def back_alphabet( self, out_alphabet ):
+	def _back_alphabet( self, out_alphabet ):
 		""" From a leftward-encoding alphabet, compute the symmetrical, rightward-encoded alphabet, to be used for the scrambling operations happening on the way back from the reflector.
 
 		:param out_alphabet: the leftward-encoding alphabet, that uniquely defines the wiring of the rotor, represented as an array of letter positions (0-25)
@@ -174,12 +174,12 @@ class Enigma():
 		self.reflectorB = Rotor( 'Wide-B', 'YRUHQSLDPXNGOKMIEBFZCWVJAT' )
 
 		# Rotors I through III, from L to R
-		self.assemble_rotors( self.rotors[0], self.rotors[1], self.rotors[2], self.reflectorB )
+		self._assemble_rotors( self.rotors[0], self.rotors[1], self.rotors[2], self.reflectorB )
 
 		# Set this attribute to prevent rotor stepping (prevent polyalphabetic encyphering)
 		self.STATIC=False
 
-	def assemble_rotors(self, left, middle, right, reflector):
+	def _assemble_rotors(self, left, middle, right, reflector):
 		""" 
 		Choose the rotors to be used and arrange them on the shaft.
 
@@ -250,7 +250,7 @@ class Enigma():
 		middle_rotor = self.rotors[ int(rotor_selection[1])-1 ]
 		right_rotor = self.rotors[ int(rotor_selection[2])-1 ]
 
-		self.assemble_rotors( left_rotor, middle_rotor, right_rotor, self.reflectorB )
+		self._assemble_rotors( left_rotor, middle_rotor, right_rotor, self.reflectorB )
 
 		self.set_positions( rotor_positions )
 		self.set_rings( ring_settings )
@@ -323,7 +323,7 @@ class Enigma():
 		return encyphered_letter
 	
 	def message( self ):
-		"""Interact with the machine: allow for configuring a machine (rotor positions and ring settings), and for encoding an entire message, or letter by letter.
+		"""Interact with the machine: allow for configuring a machine (rotors selection, rotors positions and ring settings), and for encoding an entire message, or letter by letter.
 		"""
 
 		rotor_selection = input("Choose the rotors to be used, from left to right [default: 123 ]: ")
