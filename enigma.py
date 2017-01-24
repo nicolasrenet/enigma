@@ -69,19 +69,19 @@ class Rotor():
 	def set_position(self, letter ):
 		""" Set the starting position for the rotor, given a letter code.
 
-		:param letter: a one-character string.
+		:param letter: a one-character string, standing for letter code _as shown in the window_; for any ring setting other than 'A', use the ring offset to compute the actual starting position of the rotor, as follows:  <position> = <window position> - <ring setting> 
 		:type letter: str
 		"""
-		self.position = ord(letter)-65
+		self.position = (ord(letter) - (65 + self.ring_setting)) % 26 
 
 
 	def get_position(self):
-		""" Return the position of the rotor in human-readable form, i.e. as a letter.
+		""" Return the position of the rotor in human-readable form, as the letter shown in the window.
 
 		:return: a single-letter letter string.
 		:rtype: str
 		"""
-		return chr(self.position+65)
+		return chr((self.position + self.ring_setting)%26 + 65)
 
 	def increment_position(self):
 		""" Take the rotor one step further, without considering the turnover notch.
@@ -125,7 +125,7 @@ class Rotor():
 		:return: a single-letter string.
 		:rtype: str
 		"""
-		return chr( self.position + self.ring_setting + 65)
+		return chr( ((self.position + self.ring_setting) % 26) + 65)
 
 	def get_window_numeral( self ):
 		""" Return the numeric value of the letter that appears in the window.
@@ -133,7 +133,7 @@ class Rotor():
 		:return: a integer between 0 and 25
 		:rtype: int
 		"""
-		return self.position + self.ring_setting
+		return (self.position + self.ring_setting) % 26
 
 
 	def alphabet( self ):
@@ -251,7 +251,7 @@ class Enigma():
 		self.rotor_M.set_ring( trigram[1] )
 		self.rotor_R.set_ring( trigram[2] )
 
-	def configure(self, rotor_selection='123', ring_settings='AAA', plugboard=None ):
+	def configure(self, rotor_selection='123', ring_settings='AAA', plugboard=None, starting_positions='AAA' ):
 		""" Define the initial configuration of the machine.
 
 		:param rotor_positions: a 3-letter code that determines the starting position for the rotors
@@ -259,8 +259,6 @@ class Enigma():
 		:type rotor_positions: str
 		:type ring_settings: str
 		"""
-		self.set_positions('AAA')
-
 		left_rotor = self.rotors[ int(rotor_selection[0])-1 ]
 		middle_rotor = self.rotors[ int(rotor_selection[1])-1 ]
 		right_rotor = self.rotors[ int(rotor_selection[2])-1 ]
@@ -274,15 +272,20 @@ class Enigma():
 				self.plugboard[ ord(bigram[0])-65 ] = ord(bigram[1])-65
 				self.plugboard[ ord(bigram[1])-65 ] = ord(bigram[0])-65
 
+		self.set_positions( starting_positions )	
+
+
 	def step( self, rotor ):
 		""" Advance the rotor by one position. If carry notch engages (in the "turnover" position), takes rotor on the left one step further. 
 
 		:param rotor: a rotor (i.e. not a reflector)
 		:type rotor: Rotor
 		"""
+		log('step(rotor {}) with notch at {} and window numeral at {} '.format( rotor.rotor_id, rotor.notch, rotor.get_window_numeral() ), 2)
 		# Ex. is carry notch for the rotor is 'Q' and current position is 'Q', the step that is about to occur
 		# will also take the rotor on the left one step further.
 		carry = (rotor.get_window_numeral() == rotor.notch)
+		log('Carry? '+str(carry), 2)
 
 		rotor.increment_position()
 
@@ -467,48 +470,81 @@ class TestRotors( unittest.TestCase ):
 		self.assertEqual( self.enigma.rotor_M.get_ring_setting(), 'K')
 		self.assertEqual( self.enigma.rotor_R.get_ring_setting(), 'W')
 
-	def test_middle_rotor_turnover_with_ring_offset( self ):
-		print("Testing that turnover mechanism is triggered by the alphabet ring's position, not the rotor's")
+	def test_configure_starting_position_1 ( self ):
+		self.enigma.configure('123','AAA', starting_positions='AAA')
+		self.assertEqual( self.enigma.rotor_M.get_window_letter(), 'A')
+		self.assertEqual( self.enigma.rotor_R.get_window_letter(), 'A')
+
+	def test_configure_starting_position_2 ( self ):
+		self.enigma.configure('123','AAA', starting_positions='AAA')
+		self.assertEqual( self.enigma.rotor_M.position, 0)
+		self.assertEqual( self.enigma.rotor_R.position, 0)
+
+	def test_configure_starting_position_3 ( self ):
+		self.enigma.configure('123','ACB', starting_positions='AAA')
+		self.assertEqual( self.enigma.rotor_M.get_window_letter(), 'A')
+		self.assertEqual( self.enigma.rotor_R.get_window_letter(), 'A')
+
+	def test_configure_starting_position_4 ( self ):
+		self.enigma.configure('123','ACB', starting_positions='AAA')
+		self.assertEqual( self.enigma.rotor_M.position, 24)
+		self.assertEqual( self.enigma.rotor_R.position, 25)
+
+	def test_step_1( self ):
+		self.enigma.configure('123','ACB', starting_positions='AAA')
+		self.enigma.step( self.enigma.rotor_R )
+		self.assertEqual( self.enigma.rotor_R.position, 0 )
+		self.assertEqual( self.enigma.rotor_R.get_window_letter(), 'B' )
+
+	def test_step_2( self ):
+		self.enigma.configure('123','ACB', starting_positions='AAA')
+		self.enigma.step( self.enigma.rotor_R )
+		self.enigma.step( self.enigma.rotor_R )
+		self.assertEqual( self.enigma.rotor_R.position, 1 )
+		self.assertEqual( self.enigma.rotor_R.get_window_letter(), 'C' )
+
+	def test_R_rotor_turnover_with_ring_offset( self ):
+		print("Testing turnover mechanism for R rotor")
 		# R-rotor ring is in the notch position
-		self.enigma.configure('123','AAV')
+		self.enigma.configure('123','OIU', starting_positions='AAV')
 		self.enigma.step( self.enigma.rotor_R )
 		self.assertEqual( self.enigma.rotor_R.get_window_letter(), 'W') 
 		self.assertEqual( self.enigma.rotor_M.get_window_letter(), 'B') 
 
-	def test_left_rotor_turnover_with_ring_offset( self ):
-		print("Testing that turnover mechanism is triggered by the alphabet ring's position, not the rotor's")
+	def test_M_rotor_turnover_with_ring_offset( self ):
+		print("Testing turnover mechanism for M rotor")
 		# M-rotor is in the notch position
-		self.enigma.configure('123','AEA')
+		self.enigma.configure('123','SOI', starting_positions='AEA')
 		self.enigma.step( self.enigma.rotor_M )
 		self.assertEqual( self.enigma.rotor_M.get_window_letter(), 'F') 
 		self.assertEqual( self.enigma.rotor_L.get_window_letter(), 'B') 
 
 
 	def test_turnover_sequence_with_ring_offset( self ):
-		print("Testing that turnover mechanism is triggered by the alphabet ring's position, not the rotor's")
+		print("Testing 3-rotors turnover sequence")
 		# R- and M-rotor are in the notch position
 		# L-rotor should be taken one step further.
-		self.enigma.configure('123','AEV')
+		self.enigma.configure('123','CZJ', starting_positions='AEV')
 		self.enigma.step( self.enigma.rotor_R )
 		self.assertEqual( self.enigma.rotor_R.get_window_letter(), 'W') 
 		self.assertEqual( self.enigma.rotor_M.get_window_letter(), 'F') 
 		self.assertEqual( self.enigma.rotor_L.get_window_letter(), 'B') 
 
 	def test_turnover_sequence_double_stepping_1( self ):
-		print("Testing that turnover mechanism is triggered by the alphabet ring's position, not the rotor's")
+		print("Testing double stepping")
 		# R- and M-rotor are in the notch position
 		# L-rotor should be taken one step further.
-		self.enigma.configure('123','AEW')
+		self.enigma.configure('123','AAA', starting_positions='AEW')
 		self.enigma.step( self.enigma.rotor_R )
 		self.assertEqual( self.enigma.rotor_R.get_window_letter(), 'X')
 		self.assertEqual( self.enigma.rotor_M.get_window_letter(), 'F')
 		self.assertEqual( self.enigma.rotor_L.get_window_letter(), 'B')
 
 	def test_turnover_sequence_double_stepping_2( self ):
-		print("Testing that turnover mechanism is triggered by the alphabet ring's position, not the rotor's")
+		print("Testing double stepping")
 		# R- and M-rotor are in the notch position
 		# L-rotor should be taken one step further.
-		self.enigma.configure('321','AER')
+		self.enigma.configure('321','ABC', starting_positions='AER')
 		self.enigma.step( self.enigma.rotor_R )
 		self.assertEqual( self.enigma.rotor_R.get_window_letter(), 'S')
 		self.assertEqual( self.enigma.rotor_M.get_window_letter(), 'F')
