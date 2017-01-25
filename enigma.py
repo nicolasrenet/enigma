@@ -162,7 +162,7 @@ class Rotor():
 class Enigma():
 
 
-	def __init__(self):
+	def __init__(self, rotor_selection='123', ring_settings='AAA', plugboard=None):
 		""" Create a new Enigma machine.
 
 		Default settings:
@@ -181,11 +181,7 @@ class Enigma():
 		# reflector
 		self.reflectorB = Rotor( 'Wide-B', 'YRUHQSLDPXNGOKMIEBFZCWVJAT' )
 
-		# Rotors I through III, from L to R
-		self._assemble_rotors( self.rotors[0], self.rotors[1], self.rotors[2], self.reflectorB )
-
-		# By default, the plugboard maps every letter to itself
-		self.plugboard = [ letter-65 for letter in range( ord('A'), ord('Z')+1) ]
+		self._configure( rotor_selection, ring_settings, plugboard )
 
 		# Set this attribute to prevent rotor stepping (prevent polyalphabetic encyphering)
 		self.STATIC=False
@@ -251,7 +247,7 @@ class Enigma():
 		self.rotor_M.set_ring( trigram[1] )
 		self.rotor_R.set_ring( trigram[2] )
 
-	def configure(self, rotor_selection='123', ring_settings='AAA', plugboard=None, starting_positions='AAA' ):
+	def _configure(self, rotor_selection='123', ring_settings='AAA', plugboard=None, starting_positions='AAA' ):
 		""" Define the initial configuration of the machine.
 
 		:param rotor_positions: a 3-letter code that determines the starting position for the rotors
@@ -259,19 +255,24 @@ class Enigma():
 		:type rotor_positions: str
 		:type ring_settings: str
 		"""
+		# choosing the rotors
 		left_rotor = self.rotors[ int(rotor_selection[0])-1 ]
 		middle_rotor = self.rotors[ int(rotor_selection[1])-1 ]
 		right_rotor = self.rotors[ int(rotor_selection[2])-1 ]
 
 		self._assemble_rotors( left_rotor, middle_rotor, right_rotor, self.reflectorB )
 
+		# choosing the ring offset (ringstellung)
 		self.set_rings( ring_settings )
 
+		# configuring the plugboard (steckbrett)
+		self.plugboard = [ letter-65 for letter in range( ord('A'), ord('Z')+1) ]
 		if plugboard is not None and len(plugboard)>0:
 			for bigram in plugboard:
 				self.plugboard[ ord(bigram[0])-65 ] = ord(bigram[1])-65
 				self.plugboard[ ord(bigram[1])-65 ] = ord(bigram[0])-65
 
+		# set the start position for the rotors
 		self.set_positions( starting_positions )	
 
 
@@ -281,11 +282,11 @@ class Enigma():
 		:param rotor: a rotor (i.e. not a reflector)
 		:type rotor: Rotor
 		"""
-		log('step(rotor {}) with notch at {} and window numeral at {} '.format( rotor.rotor_id, rotor.notch, rotor.get_window_numeral() ), 2)
+		log('step(rotor {}) with notch at {} and window numeral at {} '.format( rotor.rotor_id, rotor.notch, rotor.get_window_numeral() ), 3)
 		# Ex. is carry notch for the rotor is 'Q' and current position is 'Q', the step that is about to occur
 		# will also take the rotor on the left one step further.
 		carry = (rotor.get_window_numeral() == rotor.notch)
-		log('Carry? '+str(carry), 2)
+		log('Carry? '+str(carry), 3)
 
 		rotor.increment_position()
 
@@ -351,21 +352,30 @@ class Enigma():
 		encyphered_letter = chr( input_code + 65 )
 		log('--> encyphered: ' + encyphered_letter, 2 )
 		return encyphered_letter
-	
-	def message( self ):
-		"""Interact with the machine: allow for configuring a machine (rotors selection, rotors positions and ring settings), and for encoding an entire message, or letter by letter.
+
+	def configure(self):
+		""" Interactive interface for the _configure method: set the daily parameters for the machine (not the starting position, which is 'AAA' by default and needs to be set for every message).
 		"""
-		
+
 		rotor_selection = input("Choose the rotors to be used, from left to right [default: 123 ]: ")
 		if rotor_selection == '': rotor_selection = '123' 
 
 		ring_setting = input("Choose the ring settings for the rotors [default: 'AAA']: ")
 		if ring_setting == '': ring_setting = 'AAA'
-		interactive = input("Interactive mode? [N/y] ")
-		if interactive == '': interactive = False
+		#interactive = input("Interactive mode? [N/y] ")
+		#if interactive == '': interactive = False
 
-		self.configure( rotor_selection, ring_setting)
+		plugboard = input("Set the plugboard [None]: ")
+		if plugboard == '': plugboard = None
 
+		self._configure( rotor_selection, ring_setting, plugboard)
+
+	
+	def message( self ):
+		"""Interact with the machine: allow for configuring a machine (rotors selection, rotors positions and ring settings), and for encoding an entire message, or letter by letter.
+		"""
+		
+		interactive = False
 		if interactive:
 
 			to_encode = ''
@@ -373,6 +383,10 @@ class Enigma():
 				to_encode = input("Enter a letter: ")
 				print( self.encypher( to_encode ) )
 		else:
+			start_position = input("Set the indicator (start position for the rotors ['AAA']: ")
+			if start_position == '': start_position = 'AAA'
+			self.set_positions( start_position )
+
 			message = input("Enter the message: " )
 			cleaned_up_message =  message.translate(str.maketrans('','',' .,;:?!@%+-_\'')).upper()
 			encoded_message = []
@@ -463,41 +477,41 @@ class TestRotors( unittest.TestCase ):
 
 		self.assertEqual( encyphered_sequence, [ 'E', 'W', 'T', 'Y', 'X'] )
 
-	def test_configure_ring_settings( self ):
-		self.enigma.configure('123', 'FKW' )
+	def test__configure_ring_settings( self ):
+		self.enigma._configure('123', 'FKW' )
 		
 		self.assertEqual( self.enigma.rotor_L.get_ring_setting(), 'F')
 		self.assertEqual( self.enigma.rotor_M.get_ring_setting(), 'K')
 		self.assertEqual( self.enigma.rotor_R.get_ring_setting(), 'W')
 
-	def test_configure_starting_position_1 ( self ):
-		self.enigma.configure('123','AAA', starting_positions='AAA')
+	def test__configure_starting_position_1 ( self ):
+		self.enigma._configure('123','AAA', starting_positions='AAA')
 		self.assertEqual( self.enigma.rotor_M.get_window_letter(), 'A')
 		self.assertEqual( self.enigma.rotor_R.get_window_letter(), 'A')
 
-	def test_configure_starting_position_2 ( self ):
-		self.enigma.configure('123','AAA', starting_positions='AAA')
+	def test__configure_starting_position_2 ( self ):
+		self.enigma._configure('123','AAA', starting_positions='AAA')
 		self.assertEqual( self.enigma.rotor_M.position, 0)
 		self.assertEqual( self.enigma.rotor_R.position, 0)
 
-	def test_configure_starting_position_3 ( self ):
-		self.enigma.configure('123','ACB', starting_positions='AAA')
+	def test__configure_starting_position_3 ( self ):
+		self.enigma._configure('123','ACB', starting_positions='AAA')
 		self.assertEqual( self.enigma.rotor_M.get_window_letter(), 'A')
 		self.assertEqual( self.enigma.rotor_R.get_window_letter(), 'A')
 
-	def test_configure_starting_position_4 ( self ):
-		self.enigma.configure('123','ACB', starting_positions='AAA')
+	def test__configure_starting_position_4 ( self ):
+		self.enigma._configure('123','ACB', starting_positions='AAA')
 		self.assertEqual( self.enigma.rotor_M.position, 24)
 		self.assertEqual( self.enigma.rotor_R.position, 25)
 
 	def test_step_1( self ):
-		self.enigma.configure('123','ACB', starting_positions='AAA')
+		self.enigma._configure('123','ACB', starting_positions='AAA')
 		self.enigma.step( self.enigma.rotor_R )
 		self.assertEqual( self.enigma.rotor_R.position, 0 )
 		self.assertEqual( self.enigma.rotor_R.get_window_letter(), 'B' )
 
 	def test_step_2( self ):
-		self.enigma.configure('123','ACB', starting_positions='AAA')
+		self.enigma._configure('123','ACB', starting_positions='AAA')
 		self.enigma.step( self.enigma.rotor_R )
 		self.enigma.step( self.enigma.rotor_R )
 		self.assertEqual( self.enigma.rotor_R.position, 1 )
@@ -506,7 +520,7 @@ class TestRotors( unittest.TestCase ):
 	def test_R_rotor_turnover_with_ring_offset( self ):
 		print("Testing turnover mechanism for R rotor")
 		# R-rotor ring is in the notch position
-		self.enigma.configure('123','OIU', starting_positions='AAV')
+		self.enigma._configure('123','OIU', starting_positions='AAV')
 		self.enigma.step( self.enigma.rotor_R )
 		self.assertEqual( self.enigma.rotor_R.get_window_letter(), 'W') 
 		self.assertEqual( self.enigma.rotor_M.get_window_letter(), 'B') 
@@ -514,7 +528,7 @@ class TestRotors( unittest.TestCase ):
 	def test_M_rotor_turnover_with_ring_offset( self ):
 		print("Testing turnover mechanism for M rotor")
 		# M-rotor is in the notch position
-		self.enigma.configure('123','SOI', starting_positions='AEA')
+		self.enigma._configure('123','SOI', starting_positions='AEA')
 		self.enigma.step( self.enigma.rotor_M )
 		self.assertEqual( self.enigma.rotor_M.get_window_letter(), 'F') 
 		self.assertEqual( self.enigma.rotor_L.get_window_letter(), 'B') 
@@ -524,7 +538,7 @@ class TestRotors( unittest.TestCase ):
 		print("Testing 3-rotors turnover sequence")
 		# R- and M-rotor are in the notch position
 		# L-rotor should be taken one step further.
-		self.enigma.configure('123','CZJ', starting_positions='AEV')
+		self.enigma._configure('123','CZJ', starting_positions='AEV')
 		self.enigma.step( self.enigma.rotor_R )
 		self.assertEqual( self.enigma.rotor_R.get_window_letter(), 'W') 
 		self.assertEqual( self.enigma.rotor_M.get_window_letter(), 'F') 
@@ -534,7 +548,7 @@ class TestRotors( unittest.TestCase ):
 		print("Testing double stepping")
 		# R- and M-rotor are in the notch position
 		# L-rotor should be taken one step further.
-		self.enigma.configure('123','AAA', starting_positions='AEW')
+		self.enigma._configure('123','AAA', starting_positions='AEW')
 		self.enigma.step( self.enigma.rotor_R )
 		self.assertEqual( self.enigma.rotor_R.get_window_letter(), 'X')
 		self.assertEqual( self.enigma.rotor_M.get_window_letter(), 'F')
@@ -544,29 +558,29 @@ class TestRotors( unittest.TestCase ):
 		print("Testing double stepping")
 		# R- and M-rotor are in the notch position
 		# L-rotor should be taken one step further.
-		self.enigma.configure('321','ABC', starting_positions='AER')
+		self.enigma._configure('321','ABC', starting_positions='AER')
 		self.enigma.step( self.enigma.rotor_R )
 		self.assertEqual( self.enigma.rotor_R.get_window_letter(), 'S')
 		self.assertEqual( self.enigma.rotor_M.get_window_letter(), 'F')
 		self.assertEqual( self.enigma.rotor_L.get_window_letter(), 'B')
 
 	def test_plugboard_1( self ):
-		self.enigma.configure('123','AAA',('AN', 'PF') )
+		self.enigma._configure('123','AAA',('AN', 'PF') )
 		print(self.enigma.plugboard)
 		self.assertEqual( self.enigma.encypher('A'), 'Y')
 
 	def test_plugboard_2( self ):
-		self.enigma.configure('123','AAA',('AN', 'PF') )
+		self.enigma._configure('123','AAA',('AN', 'PF') )
 		print(self.enigma.plugboard)
 		self.assertEqual( self.enigma.encypher('N'), 'B')
 
 	def test_plugboard_3( self ):
-		self.enigma.configure('123','AAA',('AN', 'PF') )
+		self.enigma._configure('123','AAA',('AN', 'PF') )
 		print(self.enigma.plugboard)
 		self.assertEqual( self.enigma.encypher('P'), 'E')
 
 	def test_plugboard_4( self ):
-		self.enigma.configure('123','AAA',('AN', 'PF') )
+		self.enigma._configure('123','AAA',('AN', 'PF') )
 		print(self.enigma.plugboard)
 		self.assertEqual( self.enigma.encypher('F'), 'L')
 
