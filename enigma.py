@@ -31,10 +31,7 @@ class Rotor():
 		self.position = 0 # 'A' position
 		# alphabets are coded with the corresponding ordinals (0-25)
 		
-		# This is not meant to change
-		self.A_ring_setting_alphabet = [ ord(letter)-65 for letter in list( out_alphabet ) ]
-
-		self.out_alphabet_out = self.A_ring_setting_alphabet
+		self.out_alphabet_out = [ ord(letter)-65 for letter in out_alphabet ]
 		# reverse mapping for encoding on the way back from reflector
 		self.out_alphabet_back = self._back_alphabet( self.out_alphabet_out )
 
@@ -42,6 +39,7 @@ class Rotor():
 
 		self.notch = ord( notch ) - 65
 
+		# an offset
 		self.ring_setting = 0
 		
 
@@ -72,7 +70,7 @@ class Rotor():
 		:param letter: a one-character string, standing for letter code _as shown in the window_; for any ring setting other than 'A', use the ring offset to compute the actual starting position of the rotor, as follows:  <position> = <window position> - <ring setting> 
 		:type letter: str
 		"""
-		self.position = (ord(letter) - (65 + self.ring_setting)) % 26 
+		self.position = ( ord(letter)-65 - self.ring_setting ) % 26
 
 
 	def get_internal_position(self):
@@ -99,23 +97,23 @@ class Rotor():
 		:type letter: str
 		"""
 		self.ring_setting = ord(letter) - 65
+		#self.ring_setting = self.ring_setting[ 26 - offset : ] + self.ring_setting[:offset] 
 
-		if self.ring_setting == 0:
-			self.out_alphabet_out = self.A_ring_setting_alphabet
-		else:
-			self.out_alphabet_out = self.A_ring_setting_alphabet[-self.ring_setting:] + self.A_ring_setting_alphabet[:-self.ring_setting] 
-			log("Alphabet after rotation by {} self.ring_settings: {}".format( self.ring_setting, self.alphabet()))
-			self.out_alphabet_out = [ (code+self.ring_setting)%26 for code in self.out_alphabet_out ]
+		#if self.ring_setting == 0:
+		#	self.out_alphabet_out = self.A_ring_setting_alphabet
+#		else:
+#			self.out_alphabet_out = self.A_ring_setting_alphabet[-self.ring_setting:] + self.A_ring_setting_alphabet[:-self.ring_setting] 
+#			log("Alphabet after rotation by {} self.ring_settings: {}".format( self.ring_setting, self.alphabet()))
+#			self.out_alphabet_out = [ (code+self.ring_setting)%26 for code in self.out_alphabet_out ]
 
-		self.out_alphabet_back = self._back_alphabet( self.out_alphabet_out )
+		#self.out_alphabet_back = self._back_alphabet( self.out_alphabet_out )
 
 	def get_ring_setting( self ):
-		""" Return the ring setting for the rotor in human-readable form, i.e. as a letter.
-
+		""" Return the ring setting for the rotor in human-readable form, i.e. as the letter currently at position 0 of the inner cylinder.
 		:return: a single-letter letter string.
 		:rtype: str
 		"""
-		return chr(self.ring_setting+65)
+		return chr(self.ring_setting + 65)
 
 	def get_window_letter( self ):
 		""" Return the letter that appears in the 3-letter window.
@@ -250,6 +248,9 @@ class Enigma():
 		self.rotor_M.set_ring( trigram[1] )
 		self.rotor_R.set_ring( trigram[2] )
 
+	def get_ring_settings(self):
+		return self.rotor_L.get_ring_setting() + self.rotor_M.get_ring_setting() + self.rotor_R.get_ring_setting() 
+
 	def _configure(self, rotor_selection='123', ring_settings='AAA', plugboard=None, indicator='AAA' ):
 		""" Define the initial configuration of the machine.
 
@@ -275,6 +276,7 @@ class Enigma():
 		# configuring the plugboard (steckbrett)
 		self.plugboard = list( range( 0, 26 ))
 		if plugboard is not None and len(plugboard)>0:
+			print(plugboard)
 			for bigram in plugboard:
 				self.plugboard[ ord(bigram[0])-65 ] = ord(bigram[1])-65
 				self.plugboard[ ord(bigram[1])-65 ] = ord(bigram[0])-65
@@ -357,9 +359,15 @@ class Enigma():
 			else:
 				input_code = (exit_code - rotor.position + rotor.right.position) % 26
 		
-		encyphered_letter = chr( input_code + 65 )
+		# plugboard 
+		encyphered_letter = chr( self.plugboard[ input_code ] + 65 )
 		log('--> encyphered: ' + encyphered_letter, 2 )
 		return encyphered_letter
+
+	def encypher_string(self, string, indicator='AAA'):
+		self.set_positions( indicator )
+		encyphered_string = [ self.encypher(letter) for letter in string ]
+		return ''.join( encyphered_string )
 
 	def configure(self):
 		""" Interactive interface for the _configure method: set the daily parameters for the machine (not the starting position, which is 'AAA' by default and needs to be set for every message).
@@ -459,11 +467,77 @@ class TestRotors( unittest.TestCase ):
 
 		self.assertEqual( encyphered_sequence, [ 'B', 'D', 'Z', 'G', 'O' ])
 
-	def test_ring_setting_1( self ):
-		print("\nTest that ring setting 'C' rotates the alphabet by 2 positions (for rotor I)")
-		self.enigma.rotors[0].set_ring('C')
 
-		self.assertEqual( self.enigma.rotors[0].alphabet(), 'ELGMOHNIFSXBPVQYAJZWURCKDT' )
+	def test_encypher_polyalphabetic_2(self):
+		print("\nTest encyphering with ring set on R-rotor, AAA position")
+		self.enigma.rotor_R.set_ring( 'B')
+		self.enigma.set_positions('AAA')
+
+		self.assertEqual( self.enigma.encypher('A'), 'U')
+
+	def test_encypher_polyalphabetic_3(self):
+		print("\nTest encyphering with ring set on M-rotor, AAA position")
+		self.enigma.rotor_M.set_ring( 'B')
+		self.enigma.set_positions('AAA')
+
+		self.assertEqual( self.enigma.encypher('A'), 'F')
+
+	def test_encypher_polyalphabetic_4(self):
+		print("\nTest encyphering with ring set on L-rotor, AAA position")
+		self.enigma.rotor_L.set_ring( 'B')
+		self.enigma.set_positions('AAA')
+
+		self.assertEqual( self.enigma.encypher('A'), 'Z')
+
+	def test_0_encypher_polyalphabetic_5(self):
+		print("\nTest encyphering with ring set on R-rotor, AAB position")
+		self.enigma.rotor_L.set_ring( 'G')
+		self.enigma.rotor_M.set_ring( 'M')
+		self.enigma.rotor_R.set_ring( 'Y')
+		self.enigma.set_positions('DHO')
+
+		print('Test lower-level config/encyphering functions: Enigma configuration: rotors=({},{},{}), ring={}, position={}'.format(self.enigma.rotor_L.rotor_id, self.enigma.rotor_M.rotor_id, self.enigma.rotor_R.rotor_id,self.enigma.get_ring_settings(), self.enigma.get_window() ))
+
+		self.assertEqual( self.enigma.encypher('G'), 'B')
+		self.assertEqual( self.enigma.encypher('X'), 'O')
+		self.assertEqual( self.enigma.encypher('S'), 'L')
+
+	def test_00_string_encypherment(self):
+		""" From Tony Sale's example """
+		self.enigma = Enigma('123', 'GMY')
+		print('Test higher-level config/encyphering functions : Enigma configuration: rotors=({},{},{}), ring={}, position={}'.format(self.enigma.rotor_L.rotor_id, self.enigma.rotor_M.rotor_id, self.enigma.rotor_R.rotor_id,self.enigma.get_ring_settings(), self.enigma.get_window() ))
+		self.assertEqual( self.enigma.encypher_string( 'GXS', 'DHO'), 'BOL')
+
+
+	def test_000_string_encypherment(self):
+		""" From Tony Sale's example """
+		self.enigma = Enigma('124', 'GMY')
+		print('Test higher-level config/encyphering functions : Enigma configuration: rotors=({},{},{}), ring={}, position={}'.format(self.enigma.rotor_L.rotor_id, self.enigma.rotor_M.rotor_id, self.enigma.rotor_R.rotor_id,self.enigma.get_ring_settings(), self.enigma.get_window() ))
+		self.assertEqual( self.enigma.encypher_string( 'GXS', 'DHO'), 'XPR')
+
+	def test_0000_string_encypherment(self):
+		""" From Tony Sale's example """
+		self.enigma = Enigma('523', 'GMY')
+		print('Test higher-level config/encyphering functions : Enigma configuration: rotors=({},{},{}), ring={}, position={}'.format(self.enigma.rotor_L.rotor_id, self.enigma.rotor_M.rotor_id, self.enigma.rotor_R.rotor_id,self.enigma.get_ring_settings(), self.enigma.get_window() ))
+		self.assertEqual( self.enigma.encypher_string( 'GXS', 'DHO'), 'NVY')
+
+	def test_00000_string_encypherment(self):
+		""" From Tony Sale's example """
+		self.enigma = Enigma('524', 'GMY')
+		print('Test higher-level config/encyphering functions : Enigma configuration: rotors=({},{},{}), ring={}, position={}'.format(self.enigma.rotor_L.rotor_id, self.enigma.rotor_M.rotor_id, self.enigma.rotor_R.rotor_id,self.enigma.get_ring_settings(), self.enigma.get_window() ))
+		self.assertEqual( self.enigma.encypher_string( 'GXS', 'DHO'), 'EDA')
+
+
+	def test_000000_string_encypherment(self):
+		""" From Tony Sale's example """
+		self.enigma = Enigma('425', 'GMY', (''))
+		print('Test higher-level config/encyphering functions : Enigma configuration: rotors=({},{},{}), ring={}, position={}'.format(self.enigma.rotor_L.rotor_id, self.enigma.rotor_M.rotor_id, self.enigma.rotor_R.rotor_id,self.enigma.get_ring_settings(), self.enigma.get_window() ))
+		self.assertEqual( self.enigma.encypher_string( 'GXS', 'DHO'), 'RDE')
+
+	def test_all(self):
+		""" From Tony Sale's example """
+		self.enigma = Enigma('425', 'GMY', plugboard = ('DN', 'GR', 'IS', 'KC', 'QX', 'TM', 'PV', 'HY', 'FW', 'BJ'))
+		self.assertEqual( self.enigma.encypher_string( 'GXS', 'DHO'), 'RLP')
 
 	def test_ring_setting_2( self ):
 		print("\nTest polyalphabetic sequential encoding, with R-rotor only and ring setting 'BBB'")
@@ -471,9 +545,10 @@ class TestRotors( unittest.TestCase ):
 		self.enigma.rotor_L.set_ring('B')
 		self.enigma.rotor_M.set_ring('B')
 		self.enigma.rotor_R.set_ring('B')
+		self.enigma.set_positions('AAA')
 
-		for rotor in ( self.enigma.rotor_L,  self.enigma.rotor_M,  self.enigma.rotor_R ):
-			print( rotor.alphabet() )
+#		for rotor in ( self.enigma.rotor_L,  self.enigma.rotor_M,  self.enigma.rotor_R ):
+#			print( rotor.alphabet() )
 
 
 		encyphered_sequence =  [
@@ -591,6 +666,35 @@ class TestRotors( unittest.TestCase ):
 		self.enigma._configure('123','AAA',('AN', 'PF') )
 		print(self.enigma.plugboard)
 		self.assertEqual( self.enigma.encypher('F'), 'L')
+
+	def test_plugboard_5( self ):
+		self.enigma._configure('123','AAC',('AN', 'PF') )
+		print(self.enigma.plugboard)
+		self.assertEqual( self.enigma.encypher('A'), 'V')
+
+	def test_plugboard_6( self ):
+		self.enigma._configure('123','AAC',('AN', 'PF') )
+		print(self.enigma.plugboard)
+		self.assertEqual( self.enigma.encypher('N'), 'O')
+
+	def test_plugboard_7( self ):
+		self.enigma._configure('123','AAC',('AN', 'PF') )
+		self.enigma.set_positions('AAB')
+		print(self.enigma.plugboard)
+		self.assertEqual( self.enigma.encypher('P'), 'T')
+
+	def test_plugboard_8( self ):
+		self.enigma._configure('123','AAC',('AN', 'PF') )
+		self.enigma.set_positions('AAB')
+		print(self.enigma.plugboard)
+		self.assertEqual( self.enigma.encypher('F'), 'G')
+
+#	def test_all_1(self):
+#		""" From Tony Sale's example """
+#		self.enigma = Enigma('123', 'GMY')
+#		self.assertEqual( self.enigma.encypher_string( 'DHO', 'GXS'), 'BOL')
+
+
 
 if __name__ == '__main__':
 	unittest.main()
