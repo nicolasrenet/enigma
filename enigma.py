@@ -306,7 +306,7 @@ class Enigma():
 		
 		:param letter: a single-character string. Ex. 'A'
 		:type letter: str
-		:return: the encoded letter, as output from a out-and-back scrambling through the 3 rotors and the reflector.
+		:return: the encoded letter, as output from an out-and-back scrambling through the 3 rotors and the reflector.
 		:rtype: str
 		"""
 
